@@ -24,20 +24,20 @@ volatile bool  output_exclude = false;
 // |PLAYER_5|PLAYER_4|PLAYER_3|PLAYER_2|PLAYER_1
 //
 // 2-button mode byte: [Left, Down, Right, Up, Run, Select, II, I]
-//  - all player button bytes are sent every cycle.
+//   - all player button bytes are sent every cycle.
 // 6-button mode byte: [III, IV, V, VI, 0, 0, 0, 0]
-//  - every other cycle alternates between default
-//    2-button byte and extended button byte.
+//   - every other cycle alternates between default
+//     2-button byte and extended button byte.
 // pce-mouse mode bytes:
-//  - when mouse present, player buttons [Run, Select, II, I] are sent
-//    as the most significant nybble. the least significant nybble holds
-//    the x-axis and y-axis broken into nyybles sent over four cycles.
-//    |CYCLE__4|CYCLE__3|CYCLE__2|CYCLE__1
-//    |bbbbXXXX|bbbbxxxx|bbbbYYYY|bbbbyyyy
+//   - when mouse present, player buttons [Run, Select, II, I] are sent
+//     as the most significant nybble. the least significant nybble holds
+//     the x-axis and y-axis broken into nyybles sent over four cycles.
+//     |CYCLE__4|CYCLE__3|CYCLE__2|CYCLE__1
+//     |bbbbXXXX|bbbbxxxx|bbbbYYYY|bbbbyyyy
 // where:
-//  - b = button values, arranged in Run/Sel/II/I sequence for PC Engine use
-//  - Xx = mouse 'x' movement; left is {1 - 0x7F} ; right is {0xFF - 0x80 }
-//  - Yy = mouse 'y' movement;  up  is {1 - 0x7F} ; down  is {0xFF - 0x80 }
+//   - b = button values, arranged in Run/Sel/II/I sequence for PC Engine use
+//   - Xx = mouse 'x' movement; left is {1 - 0x7F} ; right is {0xFF - 0x80 }
+//   - Yy = mouse 'y' movement;  up  is {1 - 0x7F} ; down  is {0xFF - 0x80 }
 //
 uint32_t output_word_0 = 0;
 uint32_t output_word_1 = 0;
@@ -231,6 +231,23 @@ void __not_in_flash_func(update_output)(void)
       players[i].button_mode = BUTTON_MODE_3_SEL;
     else if (!(players[i].output_buttons & (USBR_BUTTON_S2 | USBR_BUTTON_DL)))
       players[i].button_mode = BUTTON_MODE_3_RUN;
+
+    // --- MODIFICACIÓN DE REMAPEO PARA BOTONES SUPERIORES (QANBA N1 FIX) ---
+    if (players[i].button_mode == BUTTON_MODE_2)
+    {
+      // En modo 2 botones, L1, R1, L2 o R2 (máscara 0xF0) activan la señal de SELECT
+      if ((~(players[i].output_buttons >> 8)) & 0xF0)
+      {
+        byte &= 0b10111111; // Fuerza SELECT activo (Bit 6 = 0)
+      }
+    }
+    else
+    {
+      // En otros modos (como 6 botones), L1 activa SELECT y R1 activa RUN/START
+      if ((~(players[i].output_buttons >> 8)) & 0x10) byte &= 0b10111111; // L1 = SELECT
+      if ((~(players[i].output_buttons >> 8)) & 0x20) byte &= 0b01111111; // R1 = RUN
+    }
+    // ----------------------------------------------------------------------
 
     // Turbo EverDrive Pro hot-key fix
     if (hotkey)
